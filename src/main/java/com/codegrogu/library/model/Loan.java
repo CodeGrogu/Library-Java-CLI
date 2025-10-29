@@ -65,6 +65,12 @@ public class Loan {
     public double getFineAmount() { return fineAmount; }
     public void setFineAmount(double fineAmount) { this.fineAmount = fineAmount; }
 
+    public LocalDate getLoanDate() { return issueDate; }
+    public void setLoanDate(LocalDate loanDate) { this.issueDate = loanDate; }
+
+    public boolean isReturned() { return status == LoanStatus.RETURNED; }
+    public void setReturned(boolean returned) { this.status = returned ? LoanStatus.RETURNED : LoanStatus.ACTIVE; }
+
     // === Utility Methods ===
 
     /**

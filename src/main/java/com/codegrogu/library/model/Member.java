@@ -118,6 +118,24 @@ public class Member {
         return firstName + " " + lastName;
     }
 
+    public String getName() {
+        return getFullName();
+    }
+
+    public void setName(String name) {
+        String[] parts = name.split(" ", 2);
+        if (parts.length >= 1) this.firstName = parts[0];
+        if (parts.length >= 2) this.lastName = parts[1];
+    }
+
+    public LocalDate getMembershipDate() {
+        return dateJoined;
+    }
+
+    public void setMembershipDate(LocalDate membershipDate) {
+        this.dateJoined = membershipDate;
+    }
+
     public void addFine(double amount) {
         this.outstandingFines += amount;
     }

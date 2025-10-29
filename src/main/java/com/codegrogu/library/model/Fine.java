@@ -11,12 +11,13 @@ public class Fine {
     private LocalDate issuedDate;  // When fine was created
     private LocalDate dueDate;     // When payment is expected
     private String status;         // UNPAID, PAID, WAIVED
+    private LocalDate paymentDate; // When the fine was paid
 
     // Constructors
     public Fine() {}
 
     public Fine(int fineId, int memberId, int loanId, double amount, String reason,
-                LocalDate issuedDate, LocalDate dueDate, String status) {
+                LocalDate issuedDate, LocalDate dueDate, String status, LocalDate paymentDate) {
         this.fineId = fineId;
         this.memberId = memberId;
         this.loanId = loanId;
@@ -25,6 +26,7 @@ public class Fine {
         this.issuedDate = issuedDate;
         this.dueDate = dueDate;
         this.status = status;
+        this.paymentDate = paymentDate;
     }
 
     // Getters and Setters
@@ -52,6 +54,12 @@ public class Fine {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
+    public LocalDate getPaymentDate() { return paymentDate; }
+    public void setPaymentDate(LocalDate paymentDate) { this.paymentDate = paymentDate; }
+
+    public boolean isPaid() { return "PAID".equals(status); }
+    public void setPaid(boolean paid) { this.status = paid ? "PAID" : "UNPAID"; }
+
     @Override
     public String toString() {
         return "Fine{" +
@@ -63,6 +71,7 @@ public class Fine {
                 ", issuedDate=" + issuedDate +
                 ", dueDate=" + dueDate +
                 ", status='" + status + '\'' +
+                ", paymentDate=" + paymentDate +
                 '}';
     }
 }

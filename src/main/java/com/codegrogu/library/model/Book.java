@@ -57,6 +57,9 @@ public class Book {
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
+    public int getBookId() { return id; }
+    public void setBookId(int bookId) { this.id = bookId; }
+
     public Condition getCondition() { return condition; }
     public void setCondition(Condition condition) { this.condition = condition; }
 
@@ -105,6 +108,8 @@ public class Book {
                 ", author='" + author + '\'' +
                 ", genre='" + genre + '\'' +
                 ", condition=" + condition +
+                ", size=" + size +
+                ", keywords=" + keywords +
                 ", available=" + isAvailable +
                 ", location='" + location + '\'' +
                 ", timesBorrowed=" + timesBorrowed +
