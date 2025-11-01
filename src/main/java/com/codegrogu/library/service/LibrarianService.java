@@ -2,6 +2,7 @@ package com.codegrogu.library.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import com.codegrogu.library.model.Librarian;
@@ -22,20 +23,17 @@ public class LibrarianService {
     // === Add a new librarian ===
     public Librarian addLibrarian(String name, String email, String phoneNumber) {
         Librarian librarian = new Librarian();
-        librarian.setLibrarianId(librarianRepository.generateLibrarianId());
         librarian.setName(name);
         librarian.setEmail(email);
         librarian.setPhoneNumber(phoneNumber);
         librarian.setActive(true);
 
-        librarianRepository.addLibrarian(librarian);
-        return librarian;
+        return persistNewLibrarian(librarian);
     }
 
     // === Add a new librarian with full details ===
     public Librarian addLibrarian(String firstName, String lastName, String gender, LocalDate dateOfBirth, String email, String phoneNumber, String address, String position, double salary) {
         Librarian librarian = new Librarian();
-        librarian.setLibrarianId(librarianRepository.generateLibrarianId());
         librarian.setFirstName(firstName);
         librarian.setLastName(lastName);
         librarian.setGender(gender);
@@ -45,18 +43,14 @@ public class LibrarianService {
         librarian.setAddress(address);
         librarian.setPosition(position);
         librarian.setSalary(salary);
-        librarian.setDateHired(LocalDate.now());
         librarian.setActive(true);
 
-        librarianRepository.addLibrarian(librarian);
-        return librarian;
+        return persistNewLibrarian(librarian);
     }
 
     // === Add a new librarian with full details including role ===
     public Librarian addLibrarian(String firstName, String lastName, String gender, LocalDate dateOfBirth, String email, String phoneNumber, String address, String position, double salary, LibrarianRole role) {
         Librarian librarian = new Librarian();
-        librarian.setLibrarianId(librarianRepository.generateLibrarianId());
-        librarian.setStaffCode("LIB" + String.format("%03d", librarian.getLibrarianId()));
         librarian.setFirstName(firstName);
         librarian.setLastName(lastName);
         librarian.setGender(gender);
@@ -67,18 +61,16 @@ public class LibrarianService {
         librarian.setPosition(position);
         librarian.setSalary(salary);
         librarian.setRole(role);
-        librarian.setDateHired(LocalDate.now());
         librarian.setActive(true);
 
-        librarianRepository.addLibrarian(librarian);
-        return librarian;
+        return persistNewLibrarian(librarian);
     }
 
     // === Add a new librarian with full details including credentials ===
     public Librarian addLibrarian(String firstName, String lastName, String gender, LocalDate dateOfBirth, String email, String phoneNumber, String address, String position, double salary, LibrarianRole role, String username, String password) {
         Librarian librarian = addLibrarian(firstName, lastName, gender, dateOfBirth, email, phoneNumber, address, position, salary, role);
-        librarian.setUsername(username);
-        librarian.setPasswordHash(password); // No hashing for simplicity
+        librarian.setUsername(sanitize(username));
+        librarian.setPasswordHash(sanitize(password)); // No hashing for simplicity
         librarian.setLastLoginDate(null);
 
         librarianRepository.updateLibrarian(librarian);
@@ -119,6 +111,17 @@ public class LibrarianService {
 
     // === Update a librarian ===
     public boolean updateLibrarian(Librarian librarian) {
+        if (librarian == null) {
+            throw new IllegalArgumentException("Librarian must not be null");
+        }
+        if (librarian.getLibrarianId() <= 0) {
+            throw new IllegalArgumentException("Librarian ID must be positive");
+        }
+        if (librarianRepository.getLibrarianById(librarian.getLibrarianId()).isEmpty()) {
+            throw new IllegalArgumentException("Librarian not found");
+        }
+        sanitizeLibrarian(librarian);
+    validateLibrarian(librarian);
         return librarianRepository.updateLibrarian(librarian);
     }
 
@@ -135,5 +138,69 @@ public class LibrarianService {
     // === Get all active librarians ===
     public List<Librarian> getActiveLibrarians() {
         return librarianRepository.findActiveLibrarians();
+    }
+
+    private Librarian persistNewLibrarian(Librarian librarian) {
+        sanitizeLibrarian(librarian);
+    validateLibrarian(librarian);
+        librarian.setLibrarianId(librarianRepository.generateLibrarianId());
+        librarian.setStaffCode(generateStaffCode(librarian.getLibrarianId()));
+        if (librarian.getDateHired() == null) {
+            librarian.setDateHired(LocalDate.now());
+        }
+        if (librarian.getRole() == null) {
+            librarian.setRole(LibrarianRole.STAFF);
+        }
+        librarianRepository.addLibrarian(librarian);
+        return librarian;
+    }
+
+    private void sanitizeLibrarian(Librarian librarian) {
+        librarian.setFirstName(sanitize(librarian.getFirstName()));
+        librarian.setLastName(sanitize(librarian.getLastName()));
+        librarian.setGender(sanitize(librarian.getGender()));
+        librarian.setEmail(sanitize(librarian.getEmail()));
+        librarian.setPhoneNumber(sanitize(librarian.getPhoneNumber()));
+        librarian.setAddress(sanitize(librarian.getAddress()));
+        librarian.setPosition(sanitize(librarian.getPosition()));
+        librarian.setUsername(sanitize(librarian.getUsername()));
+        if (librarian.getRole() == null) {
+            librarian.setRole(LibrarianRole.STAFF);
+        }
+        if (librarian.getPasswordHash() != null) {
+            librarian.setPasswordHash(librarian.getPasswordHash().trim());
+        }
+    }
+
+    private void validateLibrarian(Librarian librarian) {
+        if (librarian.getFirstName() == null || librarian.getFirstName().isBlank()) {
+            throw new IllegalArgumentException("First name is required");
+        }
+        if (librarian.getLastName() == null || librarian.getLastName().isBlank()) {
+            throw new IllegalArgumentException("Last name is required");
+        }
+        if (librarian.getEmail() == null || librarian.getEmail().isBlank() || !librarian.getEmail().contains("@")) {
+            throw new IllegalArgumentException("Valid email is required");
+        }
+        if (librarian.getSalary() < 0) {
+            throw new IllegalArgumentException("Salary cannot be negative");
+        }
+        if (librarian.getDateOfBirth() != null && librarian.getDateOfBirth().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Date of birth cannot be in the future");
+        }
+        if (librarian.getRole() == null) {
+            librarian.setRole(LibrarianRole.STAFF);
+        }
+    }
+
+    private String sanitize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", " ");
+    }
+
+    private String generateStaffCode(int librarianId) {
+        return String.format(Locale.ROOT, "LIB%03d", librarianId);
     }
 }

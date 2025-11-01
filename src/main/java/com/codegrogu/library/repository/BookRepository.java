@@ -1,10 +1,10 @@
 package com.codegrogu.library.repository;
 
-import com.codegrogu.library.model.Book;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import com.codegrogu.library.model.Book;
 
 /**
  * In-memory repository for managing books.
@@ -42,8 +42,11 @@ public class BookRepository {
             existingBook.setPublisher(updatedBook.getPublisher());
             existingBook.setPublicationYear(updatedBook.getPublicationYear());
             existingBook.setGenre(updatedBook.getGenre());
-            existingBook.setLanguage(updatedBook.getLanguage());
-            existingBook.setKeywords(updatedBook.getKeywords());
+        existingBook.setLanguage(updatedBook.getLanguage());
+        List<String> updatedKeywords = updatedBook.getKeywords() != null
+            ? new ArrayList<>(updatedBook.getKeywords())
+            : new ArrayList<>();
+        existingBook.setKeywords(updatedKeywords);
             existingBook.setCondition(updatedBook.getCondition());
             existingBook.setLocation(updatedBook.getLocation());
             existingBook.setSize(updatedBook.getSize());
@@ -87,5 +90,24 @@ public class BookRepository {
     public boolean isAvailable(int id) {
         Optional<Book> bookOpt = getBookById(id);
         return bookOpt.map(Book::isAvailable).orElse(false);
+    }
+
+    public Optional<Book> findByIsbn(String isbn) {
+        if (isbn == null || isbn.isBlank()) {
+            return Optional.empty();
+        }
+        return books.stream()
+                .filter(book -> book.getIsbn() != null && book.getIsbn().equalsIgnoreCase(isbn))
+                .findFirst();
+    }
+
+    public boolean existsByIsbn(String isbn, Integer ignoreBookId) {
+        if (isbn == null || isbn.isBlank()) {
+            return false;
+        }
+        return books.stream()
+                .anyMatch(book -> book.getIsbn() != null
+                        && book.getIsbn().equalsIgnoreCase(isbn)
+                        && (ignoreBookId == null || book.getId() != ignoreBookId));
     }
 }

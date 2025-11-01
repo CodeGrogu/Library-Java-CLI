@@ -35,9 +35,21 @@ public class LibrarianRepository {
         Optional<Librarian> existingOpt = getLibrarianById(updatedLibrarian.getLibrarianId());
         if (existingOpt.isPresent()) {
             Librarian existing = existingOpt.get();
-            existing.setName(updatedLibrarian.getName());
+            existing.setFirstName(updatedLibrarian.getFirstName());
+            existing.setLastName(updatedLibrarian.getLastName());
+            existing.setGender(updatedLibrarian.getGender());
+            existing.setDateOfBirth(updatedLibrarian.getDateOfBirth());
             existing.setEmail(updatedLibrarian.getEmail());
             existing.setPhoneNumber(updatedLibrarian.getPhoneNumber());
+            existing.setAddress(updatedLibrarian.getAddress());
+            existing.setPosition(updatedLibrarian.getPosition());
+            existing.setSalary(updatedLibrarian.getSalary());
+            existing.setRole(updatedLibrarian.getRole());
+            existing.setUsername(updatedLibrarian.getUsername());
+            existing.setPasswordHash(updatedLibrarian.getPasswordHash());
+            existing.setLastLoginDate(updatedLibrarian.getLastLoginDate());
+            existing.setStaffCode(updatedLibrarian.getStaffCode());
+            existing.setDateHired(updatedLibrarian.getDateHired());
             existing.setActive(updatedLibrarian.isActive());
             return true;
         }
@@ -75,6 +87,9 @@ public class LibrarianRepository {
 
     // Generate unique librarian ID
     public int generateLibrarianId() {
-        return librarians.isEmpty() ? 1 : librarians.get(librarians.size() - 1).getLibrarianId() + 1;
+        return librarians.stream()
+                .mapToInt(Librarian::getLibrarianId)
+                .max()
+                .orElse(0) + 1;
     }
 }

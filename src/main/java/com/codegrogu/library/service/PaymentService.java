@@ -1,13 +1,13 @@
 package com.codegrogu.library.service;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
 import com.codegrogu.library.model.Fine;
 import com.codegrogu.library.model.Payment;
 import com.codegrogu.library.repository.FineRepository;
 import com.codegrogu.library.repository.PaymentRepository;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Service layer for managing payments in the library system.
@@ -24,6 +24,12 @@ public class PaymentService {
 
     // === Make a payment for a fine ===
     public boolean payFine(int fineId, double amount, LocalDate paymentDate, String paymentMethod) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Payment amount must be positive");
+        }
+        if (paymentMethod == null || paymentMethod.trim().isEmpty()) {
+            throw new IllegalArgumentException("Payment method is required");
+        }
         Optional<Fine> fineOpt = fineRepository.getFineById(fineId);
         if (fineOpt.isPresent()) {
             Fine fine = fineOpt.get();
@@ -40,7 +46,7 @@ public class PaymentService {
                 payment.setMemberId(fine.getMemberId());
                 payment.setAmount(amount);
                 payment.setPaymentDate(paymentDate);
-                payment.setPaymentMethod(paymentMethod);
+                payment.setPaymentMethod(paymentMethod.trim());
 
                 paymentRepository.addPayment(payment);
                 return true;
@@ -66,7 +72,9 @@ public class PaymentService {
 
     // === Generate unique payment ID ===
     private int generatePaymentId() {
-        List<Payment> allPayments = paymentRepository.getAllPayments();
-        return allPayments.isEmpty() ? 1 : allPayments.get(allPayments.size() - 1).getPaymentId() + 1;
+        return paymentRepository.getAllPayments().stream()
+                .mapToInt(Payment::getPaymentId)
+                .max()
+                .orElse(0) + 1;
     }
 }

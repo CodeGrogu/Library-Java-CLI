@@ -25,47 +25,54 @@ public class ReservationService {
     // === Create a new reservation ===
     public boolean createReservation(int bookId, int memberId) {
         Optional<Book> bookOpt = bookRepository.getBookById(bookId);
-        if (bookOpt.isPresent()) {
-            Book book = bookOpt.get();
-            if (!book.isAvailable()) {
-                // Book is currently borrowed, reservation allowed
-                Reservation reservation = new Reservation();
-                reservation.setReservationId(generateReservationId());
-                reservation.setBookId(bookId);
-                reservation.setMemberId(memberId);
-                reservation.setReservationDate(LocalDate.now());
-                reservation.setStatus("Pending");
-
-                reservationRepository.addReservation(reservation);
-                return true;
-            }
+        if (bookOpt.isEmpty()) {
+            return false;
         }
-        return false; // Book is available or not found
+        Book book = bookOpt.get();
+        if (book.isAvailable()) {
+            return false; // Encourage immediate checkout instead
+        }
+
+        boolean alreadyQueued = reservationRepository.findReservationsByBookId(bookId).stream()
+                .anyMatch(r -> r.getMemberId() == memberId && "PENDING".equalsIgnoreCase(r.getStatus()));
+        if (alreadyQueued) {
+            return false;
+        }
+
+        Reservation reservation = new Reservation();
+        reservation.setReservationId(generateReservationId());
+        reservation.setBookId(bookId);
+        reservation.setMemberId(memberId);
+        reservation.setReservationDate(LocalDate.now());
+        reservation.setStatus("Pending");
+
+        reservationRepository.addReservation(reservation);
+        return true;
     }
 
     // === Fulfill a reservation (book becomes available for member) ===
     public boolean fulfillReservation(int reservationId) {
         Optional<Reservation> reservationOpt = reservationRepository.getReservationById(reservationId);
-        if (reservationOpt.isPresent()) {
-            Reservation reservation = reservationOpt.get();
+        if (reservationOpt.isEmpty()) {
+            return false;
+        }
+        Reservation reservation = reservationOpt.get();
+        if (!"FULFILLED".equalsIgnoreCase(reservation.getStatus())) {
             reservation.setStatus("Fulfilled");
             reservationRepository.updateReservation(reservation);
-
-            // Note: Book availability is handled by loan operations, not reservation fulfillment
-            return true;
         }
-        return false;
+        return true;
     }
 
     // === Cancel a reservation ===
     public boolean cancelReservation(int reservationId) {
         Optional<Reservation> reservationOpt = reservationRepository.getReservationById(reservationId);
-        if (reservationOpt.isPresent()) {
-            Reservation reservation = reservationOpt.get();
-            reservation.setStatus("Cancelled");
-            return reservationRepository.updateReservation(reservation);
+        if (reservationOpt.isEmpty()) {
+            return false;
         }
-        return false;
+        Reservation reservation = reservationOpt.get();
+        reservation.setStatus("Cancelled");
+        return reservationRepository.updateReservation(reservation);
     }
 
     // === Get reservations for a member ===
@@ -104,7 +111,9 @@ public class ReservationService {
 
     // === Utility: generate unique reservation ID ===
     private int generateReservationId() {
-        List<Reservation> allReservations = reservationRepository.getAllReservations();
-        return allReservations.isEmpty() ? 1 : allReservations.get(allReservations.size() - 1).getReservationId() + 1;
+        return reservationRepository.getAllReservations().stream()
+                .mapToInt(Reservation::getReservationId)
+                .max()
+                .orElse(0) + 1;
     }
 }

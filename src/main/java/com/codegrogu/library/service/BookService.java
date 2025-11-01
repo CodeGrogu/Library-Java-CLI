@@ -1,7 +1,9 @@
 package com.codegrogu.library.service;
 
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import com.codegrogu.library.model.Book;
@@ -22,6 +24,19 @@ public class BookService {
 
     // === Add a new book ===
     public void addBook(Book book) {
+        if (book == null) {
+            throw new IllegalArgumentException("Book must not be null");
+        }
+        sanitizeBook(book);
+        validateBook(book, true);
+        book.setBookId(generateBookId());
+        if (book.getCondition() == null) {
+            book.setCondition(Book.Condition.GOOD);
+        }
+        if (book.getSize() == null) {
+            book.setSize(Book.Size.STANDARD);
+        }
+        book.setAvailable(true);
         bookRepository.addBook(book);
     }
 
@@ -33,7 +48,7 @@ public class BookService {
         book.setAuthor(author);
         book.setIsbn(isbn);
         book.setAvailable(true);
-        bookRepository.addBook(book);
+        addBook(book);
         return book;
     }
 
@@ -48,23 +63,11 @@ public class BookService {
         book.setPublisher(publisher);
         book.setPublicationYear(publicationYear);
         book.setLanguage(language);
-        if (condition == null || condition.trim().isEmpty() || condition.equals("null")) condition = "GOOD";
-        try {
-            book.setCondition(Book.Condition.valueOf(condition));
-        } catch (IllegalArgumentException e) {
-            book.setCondition(Book.Condition.GOOD);
-        }
-        if (size == null || size.trim().isEmpty() || size.equals("null")) size = "STANDARD";
-        try {
-            book.setSize(Book.Size.valueOf(size));
-        } catch (IllegalArgumentException e) {
-            book.setSize(Book.Size.STANDARD);
-        }
-        if (location == null || location.trim().isEmpty() || location.equals("null")) location = "Unknown";
+        book.setCondition(parseCondition(condition));
+        book.setSize(parseSize(size));
         book.setLocation(location);
         book.setKeywords(keywords != null ? new ArrayList<>(keywords) : new ArrayList<>());
-        book.setAvailable(true);
-        bookRepository.addBook(book);
+        addBook(book);
         return book;
     }
 
@@ -80,6 +83,17 @@ public class BookService {
 
     // === Update a book ===
     public boolean updateBook(Book book) {
+        if (book == null) {
+            throw new IllegalArgumentException("Book must not be null");
+        }
+        if (book.getId() <= 0) {
+            throw new IllegalArgumentException("Book ID must be positive");
+        }
+        if (bookRepository.getBookById(book.getId()).isEmpty()) {
+            throw new IllegalArgumentException("Book not found");
+        }
+        sanitizeBook(book);
+        validateBook(book, false);
         return bookRepository.updateBook(book);
     }
 
@@ -134,7 +148,99 @@ public class BookService {
 
     // === Utility: generate unique book ID ===
     private int generateBookId() {
-        List<Book> allBooks = bookRepository.getAllBooks();
-        return allBooks.isEmpty() ? 1 : allBooks.get(allBooks.size() - 1).getBookId() + 1;
+        return bookRepository.getAllBooks().stream()
+                .mapToInt(Book::getBookId)
+                .max()
+                .orElse(0) + 1;
+    }
+
+    private void sanitizeBook(Book book) {
+        book.setTitle(sanitize(book.getTitle()));
+        book.setAuthor(sanitize(book.getAuthor()));
+        book.setIsbn(sanitize(book.getIsbn()));
+        book.setGenre(sanitize(book.getGenre()));
+        book.setPublisher(sanitize(book.getPublisher()));
+        book.setLanguage(sanitize(book.getLanguage()));
+        book.setLocation(sanitizeOptional(book.getLocation(), "Unknown"));
+
+        if (book.getKeywords() == null) {
+            book.setKeywords(new ArrayList<>());
+        } else {
+            List<String> cleaned = new ArrayList<>();
+            for (String keyword : book.getKeywords()) {
+                String sanitized = sanitize(keyword);
+                if (!sanitized.isEmpty()) {
+                    cleaned.add(sanitized);
+                }
+            }
+            book.setKeywords(cleaned);
+        }
+
+        if (book.getCondition() == null) {
+            book.setCondition(Book.Condition.GOOD);
+        }
+        if (book.getSize() == null) {
+            book.setSize(Book.Size.STANDARD);
+        }
+    }
+
+    private void validateBook(Book book, boolean isNew) {
+        if (book.getTitle().isBlank()) {
+            throw new IllegalArgumentException("Title is required");
+        }
+        if (book.getAuthor().isBlank()) {
+            throw new IllegalArgumentException("Author is required");
+        }
+        if (book.getIsbn().isBlank()) {
+            throw new IllegalArgumentException("ISBN is required");
+        }
+        if (book.getIsbn().length() < 5) {
+            throw new IllegalArgumentException("ISBN must be at least 5 characters");
+        }
+
+        int currentYear = Year.now().plusYears(1).getValue();
+        if (book.getPublicationYear() < 1450 || book.getPublicationYear() > currentYear) {
+            throw new IllegalArgumentException("Publication year must be between 1450 and " + currentYear);
+        }
+
+        if (bookRepository.existsByIsbn(book.getIsbn(), isNew ? null : book.getId())) {
+            throw new IllegalArgumentException("A book with the same ISBN already exists");
+        }
+    }
+
+    private String sanitize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", " ");
+    }
+
+    private String sanitizeOptional(String value, String fallback) {
+        String sanitized = sanitize(value);
+        return sanitized.isEmpty() ? fallback : sanitized;
+    }
+
+    private Book.Condition parseCondition(String condition) {
+        String candidate = sanitize(condition);
+        if (candidate.isEmpty()) {
+            return Book.Condition.GOOD;
+        }
+        try {
+            return Book.Condition.valueOf(candidate.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return Book.Condition.GOOD;
+        }
+    }
+
+    private Book.Size parseSize(String size) {
+        String candidate = sanitize(size);
+        if (candidate.isEmpty()) {
+            return Book.Size.STANDARD;
+        }
+        try {
+            return Book.Size.valueOf(candidate.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return Book.Size.STANDARD;
+        }
     }
 }

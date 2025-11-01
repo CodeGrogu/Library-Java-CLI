@@ -1,10 +1,10 @@
 package com.codegrogu.library.repository;
 
-import com.codegrogu.library.model.Member;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import com.codegrogu.library.model.Member;
 
 /**
  * In-memory repository for managing library members.
@@ -35,11 +35,24 @@ public class MemberRepository {
         Optional<Member> existingMemberOpt = getMemberById(updatedMember.getMemberId());
         if (existingMemberOpt.isPresent()) {
             Member existingMember = existingMemberOpt.get();
-            existingMember.setName(updatedMember.getName());
+            existingMember.setFirstName(updatedMember.getFirstName());
+            existingMember.setLastName(updatedMember.getLastName());
+            existingMember.setGender(updatedMember.getGender());
+            existingMember.setDateOfBirth(updatedMember.getDateOfBirth());
             existingMember.setEmail(updatedMember.getEmail());
             existingMember.setPhoneNumber(updatedMember.getPhoneNumber());
+            existingMember.setAddress(updatedMember.getAddress());
+            existingMember.setMemberType(updatedMember.getMemberType());
+            existingMember.setCardNumber(updatedMember.getCardNumber());
             existingMember.setMembershipDate(updatedMember.getMembershipDate());
+            existingMember.setDateJoined(updatedMember.getDateJoined());
             existingMember.setActive(updatedMember.isActive());
+            existingMember.setOutstandingFines(updatedMember.getOutstandingFines());
+            existingMember.setMembershipStatus(updatedMember.getMembershipStatus());
+            existingMember.setBorrowedBookIds(updatedMember.getBorrowedBookIds() != null
+                    ? new ArrayList<>(updatedMember.getBorrowedBookIds())
+                    : new ArrayList<>());
+            existingMember.setTotalBooksBorrowed(updatedMember.getTotalBooksBorrowed());
             return true;
         }
         return false;
@@ -72,5 +85,14 @@ public class MemberRepository {
             }
         }
         return result;
+    }
+
+    public boolean existsByEmail(String email, Integer ignoreMemberId) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        return members.stream()
+                .anyMatch(member -> email.equalsIgnoreCase(member.getEmail())
+                        && (ignoreMemberId == null || member.getMemberId() != ignoreMemberId));
     }
 }

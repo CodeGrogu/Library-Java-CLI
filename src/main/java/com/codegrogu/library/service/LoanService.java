@@ -34,43 +34,62 @@ public class LoanService {
 
     // === Borrow a book ===
     public boolean issueLoan(int bookId, int memberId, LocalDate loanDate, LocalDate dueDate) {
-        Optional<Book> bookOpt = bookRepository.getBookById(bookId);
-        if (bookOpt.isPresent()) {
-            Book book = bookOpt.get();
-            if (book.isAvailable()) {
-                // Mark book as unavailable
-                book.setAvailable(false);
-                book.setTimesBorrowed(book.getTimesBorrowed() + 1);
-                bookRepository.updateBook(book);
-
-                // Update member borrowing history
-                Optional<Member> memberOpt = memberRepository.getMemberById(memberId);
-                if (memberOpt.isPresent()) {
-                    Member member = memberOpt.get();
-                    // Initialize borrowedBookIds list if null
-                    if (member.getBorrowedBookIds() == null) {
-                        member.setBorrowedBookIds(new ArrayList<>());
-                    }
-                    member.getBorrowedBookIds().add(bookId);
-                    member.setTotalBooksBorrowed(member.getTotalBooksBorrowed() + 1);
-                    memberRepository.updateMember(member);
-                }
-
-                // Create new loan
-                Loan loan = new Loan();
-                loan.setLoanId(generateLoanId());
-                loan.setBookId(bookId);
-                loan.setMemberId(memberId);
-                loan.setLoanDate(loanDate);
-                loan.setDueDate(dueDate);
-                loan.setReturned(false);
-                loan.setReturnDate(null);
-
-                loanRepository.addLoan(loan);
-                return true;
-            }
+        if (loanDate == null || dueDate == null) {
+            throw new IllegalArgumentException("Loan and due dates are required");
         }
-        return false; // Book not available or not found
+        if (dueDate.isBefore(loanDate)) {
+            throw new IllegalArgumentException("Due date cannot be before loan date");
+        }
+
+        Optional<Book> bookOpt = bookRepository.getBookById(bookId);
+        if (bookOpt.isEmpty()) {
+            return false;
+        }
+        Book book = bookOpt.get();
+        if (!book.isAvailable()) {
+            return false;
+        }
+
+        Optional<Member> memberOpt = memberRepository.getMemberById(memberId);
+        if (memberOpt.isEmpty()) {
+            return false;
+        }
+        Member member = memberOpt.get();
+        if (!member.isActive() || member.getMembershipStatus() == Member.MembershipStatus.SUSPENDED) {
+            return false;
+        }
+        if (member.getBorrowedBookIds() == null) {
+            member.setBorrowedBookIds(new ArrayList<>());
+        }
+
+        // Mark book as unavailable and persist
+        book.setAvailable(false);
+        book.setTimesBorrowed(book.getTimesBorrowed() + 1);
+        bookRepository.updateBook(book);
+
+        // Update member borrowing history
+        member.getBorrowedBookIds().add(bookId);
+        member.setTotalBooksBorrowed(member.getTotalBooksBorrowed() + 1);
+        if (!memberRepository.updateMember(member)) {
+            // Roll back book state if member update fails unexpectedly
+            book.setAvailable(true);
+            book.setTimesBorrowed(Math.max(0, book.getTimesBorrowed() - 1));
+            bookRepository.updateBook(book);
+            return false;
+        }
+
+        // Create new loan
+        Loan loan = new Loan();
+        loan.setLoanId(generateLoanId());
+        loan.setBookId(bookId);
+        loan.setMemberId(memberId);
+        loan.setLoanDate(loanDate);
+        loan.setDueDate(dueDate);
+        loan.setReturned(false);
+        loan.setReturnDate(null);
+
+        loanRepository.addLoan(loan);
+        return true;
     }
 
     // === Borrow a book with default due date ===
@@ -143,7 +162,9 @@ public class LoanService {
 
     // === Utility: generate unique loan ID ===
     private int generateLoanId() {
-        List<Loan> allLoans = loanRepository.getAllLoans();
-        return allLoans.isEmpty() ? 1 : allLoans.get(allLoans.size() - 1).getLoanId() + 1;
+        return loanRepository.getAllLoans().stream()
+                .mapToInt(Loan::getLoanId)
+                .max()
+                .orElse(0) + 1;
     }
 }

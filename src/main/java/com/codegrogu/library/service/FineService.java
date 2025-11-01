@@ -27,6 +27,9 @@ public class FineService {
 
     // === Calculate fine for a specific loan ===
     public void calculateFine(Loan loan) {
+        if (loan == null) {
+            throw new IllegalArgumentException("Loan must not be null");
+        }
         double amount = calculateFineAmount(loan);
         if (amount > 0) {
             createFineForLoan(loan);
@@ -47,6 +50,12 @@ public class FineService {
 
     // === Create fine for a loan if overdue ===
     public void createFineForLoan(Loan loan) {
+        if (loan == null) {
+            throw new IllegalArgumentException("Loan must not be null");
+        }
+        if (fineRepository.existsUnpaidFineForLoan(loan.getLoanId())) {
+            return; // Avoid duplicate fines for the same outstanding loan
+        }
         double amount = calculateFineAmount(loan);
         if (amount > 0) {
             Fine fine = new Fine();
@@ -107,8 +116,7 @@ public class FineService {
 
     // === Check if a member has unpaid fines ===
     public boolean hasUnpaidFines(int memberId) {
-        List<Fine> fines = fineRepository.getAllFines();
-        return fines.stream()
-                .anyMatch(f -> f.getMemberId() == memberId && !f.isPaid());
+    return fineRepository.getUnpaidFines().stream()
+        .anyMatch(f -> f.getMemberId() == memberId);
     }
 }

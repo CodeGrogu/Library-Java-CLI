@@ -76,4 +76,9 @@ public class FineRepository {
         }
         return result;
     }
+
+    public boolean existsUnpaidFineForLoan(int loanId) {
+        return fines.stream()
+                .anyMatch(fine -> fine.getLoanId() == loanId && !fine.isPaid());
+    }
 }
